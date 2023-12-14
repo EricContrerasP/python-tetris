@@ -16,6 +16,15 @@ $ pip install pygame
 
 ## How to play
 
+### How to init game
+
+corre el comando en el mismo ambiente que instaló pygame:
+```
+$ python tetris.py
+```
+
+## Controls
+
 - **⬅️ y ➡️: movimiento horizontal**
 - **⬆️: rotación de 90° en sentido horario**
 -   **⬇️: soft drop**
