@@ -4,9 +4,10 @@ import sys
 
 
 pygame.init()
+pygame.mixer.init()
+pygame.mixer.music.load("Tetris.wav")
 
-
-width, height = 700, 600
+width, height = 700, 650
 info_section_width = 200
 queue_piece_width = 200
 block_size = 30
@@ -49,7 +50,7 @@ random.shuffle(shapes_list)
 class Tetris:
     def __init__(self, high_score = 0):
         self.width = 10
-        self.height = 21
+        self.height = 20
         self.board = [[None] * self.width for _ in range(self.height)]
         self.bag = random.shuffle(shapes_list.copy())
         self.queue_pieces = [self.next_bag() for _ in range(3)]
@@ -61,6 +62,9 @@ class Tetris:
         self.lines = 0
         self.last_time = pygame.time.get_ticks()
         self.drop_time = self.fall_time()
+        self.hold = False
+        self.save_piece = None
+        pygame.mixer.music.play(-1)
 
     def new_piece(self):
         shape = self.queue_pieces.pop(0)
@@ -100,6 +104,7 @@ class Tetris:
         for row in complete_rows:
             del self.board[row]
             self.board.insert(0, [None] * self.width)
+        self.hold = False
         self.lines += len(complete_rows)
         self.update_score(len(complete_rows))
         self.update_level()
@@ -140,10 +145,25 @@ class Tetris:
     def hard_drop(self):
         while not self.check_collision():
             self.move_piece(0, 1)
-        self.move_piece(0, -1)  
+            self.score += 2
+        self.move_piece(0, -1)
+        self.score = self.score-2
         self.merge_piece()
 
+    def hold_piece(self):
+        if not self.hold:
+            piece = self.current_piece
+            if self.save_piece:
+                self.current_piece = self.save_piece
+            else:
+                self.current_piece = self.new_piece()
+            self.save_piece = piece
+            self.save_piece['x'] = self.width // 2 - len(self.save_piece["shape"][0])
+            self.save_piece['y'] = 0
+            self.hold = True
+            
     def game_over(self):
+        pygame.mixer.music.stop()
         print("Game over")
         if self.high_score < self.score: self.high_score = self.score 
         self.game_over_bool = True
@@ -174,7 +194,7 @@ class Tetris:
         self.level = self.lines//10 + 1
 
     def update(self):
-        draw_info(self, 0)
+        draw_info(self, 10)
         if not self.game_over_bool:
             current_time = pygame.time.get_ticks()
             elapsed_time = current_time - self.last_time
@@ -190,12 +210,13 @@ class Tetris:
 
             draw_board(self, info_section_width)
             draw_piece(self, info_section_width)
-            draw_next_pieces(self, width-queue_piece_width)
+            draw_next_pieces(self, width-queue_piece_width + 10)
+            draw_hold_piece(self, 10)
         else:
             font = pygame.font.Font(None, 50)
-            button_text = font.render("Game Over", True, white)
-            restart = button_text.get_rect(center=(width // 2, height // 2))
-            screen.blit(button_text, restart)
+            text = font.render("Game Over", True, white)
+            restart = text.get_rect(center=(width // 2, height // 2))
+            screen.blit(text, restart)
 
 
 
@@ -203,28 +224,34 @@ def draw_rect(x, y, color):
     pygame.draw.rect(screen, color, (x, y, block_size, block_size), 0)
     pygame.draw.rect(screen, black, (x, y, block_size, block_size), 1)
 
+def draw_text(x,y, text):
+    font = pygame.font.Font(None, 36)
+    show_text = font.render(text, True, white)
+    screen.blit(show_text, (x,y))
+
 def draw_board(tetris: Tetris, width):
+    height = 25
     for y, row in enumerate(tetris.board):
         for x, cell in enumerate(row):
-            rect = pygame.Rect(width + x * block_size, (y-1) * block_size, block_size, block_size)
+            rect = pygame.Rect(width + x * block_size, height + (y) * block_size, block_size, block_size)
             pygame.draw.rect(screen, gray, rect, 1)
             if cell:
-                draw_rect(width + x * block_size, (y-1) * block_size, cell)
+                draw_rect(width + x * block_size, height + (y) * block_size, cell)
 
 
 def draw_piece(tetris: Tetris, width):
+    height = 25
     shape = tetris.current_piece['shape']
     for y, row in enumerate(shape):
         for x, cell in enumerate(row):
             if cell:
-                draw_rect(width + (tetris.current_piece['x'] + x) * block_size,
-                          (tetris.current_piece['y'] + (y-1)) * block_size, 
-                          tetris.current_piece['color'])
+                if tetris.current_piece['y']+y >= 0:
+                    draw_rect(width + (tetris.current_piece['x'] + x) * block_size,
+                            height + (tetris.current_piece['y'] + (y)) * block_size, 
+                            tetris.current_piece['color'])
 
 def draw_next_pieces(tetris: Tetris, width):
-    font = pygame.font.Font(None, 30)
-    text = font.render("Next:", True, white)
-    screen.blit(text, (width + 50, 10))
+    draw_text(width, 10, "next:")
 
     next_pieces = tetris.queue_pieces # Muestra las siguientes tres piezas
     for i, piece in enumerate(next_pieces):
@@ -238,21 +265,25 @@ def draw_next_pieces(tetris: Tetris, width):
                               color)
 
 def draw_info(tetris: Tetris, width):
+    draw_text(width, 10, f"Level: {tetris.level}")
+    draw_text(width, 60, f"Score: {tetris.score}")
+    draw_text(width, 110, f"High Score: {tetris.high_score}")
+    draw_text(width, 160, f"Lines: {tetris.lines}")
+
+def draw_hold_piece(tetris: Tetris, width):
     font = pygame.font.Font(None, 36)
     
-    level_text = font.render(f"Level: {tetris.level}", True, white)
-    screen.blit(level_text, (width + 10, 10))
-
-    score_text = font.render(f"Score: {tetris.score}", True, white)
-    screen.blit(score_text, (width + 10, 60))
-
-    score_text = font.render(f"High Score: {tetris.high_score}", True, white)
-    screen.blit(score_text, (width + 10, 110))
-
-    lines_text = font.render(f"Lines: {tetris.lines}", True, white)
-    screen.blit(lines_text, (width + 10, 160))
-
-
+    hold_text = font.render(f"Hold:", True, white)
+    screen.blit(hold_text, (width, 260))
+    if tetris.save_piece:
+        shape = tetris.save_piece['shape']
+        color = tetris.save_piece['color']
+        for y, row in enumerate(shape):
+            for x, cell in enumerate(row):
+                if cell:
+                    draw_rect((width) + x * block_size,
+                                300 + y * block_size,
+                                color)
 
 
 tetris = Tetris()
@@ -267,25 +298,30 @@ while True:
             pygame.quit()
             quit()
         elif event.type == pygame.KEYDOWN:
-            if not tetris.game_over_bool and event.key == pygame.K_LEFT:
-                tetris.move_piece(-1, 0)
-                if tetris.check_collision():
-                    tetris.move_piece(1, 0)
-            elif not tetris.game_over_bool and event.key == pygame.K_RIGHT:
-                tetris.move_piece(1, 0)
-                if tetris.check_collision():
+            if not tetris.game_over_bool:
+                if event.key == pygame.K_LEFT:
                     tetris.move_piece(-1, 0)
-            elif not tetris.game_over_bool and event.key == pygame.K_DOWN:
-                tetris.move_piece(0, 1)
-                if tetris.check_collision():
-                    tetris.move_piece(0, -1)
-            elif not tetris.game_over_bool and event.key == pygame.K_UP:
-                tetris.rotate_piece()
-                if tetris.check_collision():
+                    if tetris.check_collision():
+                        tetris.move_piece(1, 0)
+                elif event.key == pygame.K_RIGHT:
+                    tetris.move_piece(1, 0)
+                    if tetris.check_collision():
+                        tetris.move_piece(-1, 0)
+                elif event.key == pygame.K_DOWN:
+                    tetris.move_piece(0, 1)
+                    if tetris.check_collision():
+                        tetris.move_piece(0, -1)
+                    else:
+                        tetris.score += 1
+                elif event.key == pygame.K_UP:
                     tetris.rotate_piece()
-            elif not tetris.game_over_bool and event.key == pygame.K_SPACE:  
-                tetris.hard_drop()
-            elif tetris.game_over_bool and event.key == pygame.K_r:
+                    if tetris.check_collision():
+                        tetris.rotate_piece()
+                elif event.key == pygame.K_SPACE:  
+                    tetris.hard_drop()
+                elif event.key == pygame.K_c or event.key == pygame.K_LCTRL:
+                    tetris.hold_piece()
+            elif event.key == pygame.K_r:
                 tetris = Tetris(tetris.high_score)
     
     tetris.update()
