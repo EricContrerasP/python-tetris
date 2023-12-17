@@ -134,7 +134,7 @@ class Tetris:
         #le asigna este valor a una pieza y la entrega
         color = piece_colors.get(shape_name)
         shape = tetris_shapes_dict.get(shape_name)
-        piece = {'shape': shape, 'x': self.width // 2 - len(shape[0]) // 2, 'y': -1, 'color': color, 'state': '0', 'shape_name':shape_name}
+        piece = {'shape': shape, 'x': self.width // 2 - len(shape[0]) // 2, 'y': -2, 'color': color, 'state': '0', 'shape_name':shape_name}
         return piece
 
     def check_collision(self, piece = None):
@@ -154,6 +154,8 @@ class Tetris:
         for y, row in enumerate(self.current_piece['shape']):
             for x, cell in enumerate(row):
                 if cell:
+                    if self.current_piece['y'] + y <0:
+                        self.game_over()
                     self.board[self.current_piece['y'] + y][self.current_piece['x'] + x] = self.current_piece['color']
         
         #revisa las filas completas
@@ -270,7 +272,6 @@ class Tetris:
             
     def game_over(self):
         pygame.mixer.music.stop()
-        print("Game over")
         if self.high_score < self.score: self.high_score = self.score 
         self.game_over_bool = True
     
@@ -391,7 +392,7 @@ def draw_info(tetris: Tetris, width):
     draw_text(width, 160, f"Lines: {tetris.lines}")
 
 def draw_hold_piece(tetris: Tetris, width):
-    draw_text(width,260,"hold:")
+    draw_text(width,260,"stored:")
     if tetris.save_piece:
         shape = tetris.save_piece['shape']
         color = tetris.save_piece['color']
