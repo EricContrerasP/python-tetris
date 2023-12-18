@@ -279,14 +279,6 @@ class Tetris:
         return (0.8 - ((self.level - 1) *0.007))**(self.level - 1)*1000
 
     def update_score(self, complete_lines):
-        if complete_lines == 1:
-            self.score += 100 * self.level
-        elif complete_lines == 2:
-            self.score += 300 * self.level
-        elif complete_lines == 3:
-            self.score += 500 * self.level
-        elif complete_lines == 4:
-            self.score += 800 * self.level
         if all(all(cell is None for cell in row) for row in self.board):
             if complete_lines == 1:
                 self.score += 800 * self.level
@@ -296,6 +288,15 @@ class Tetris:
                 self.score += 1800 * self.level
             elif complete_lines == 4:
                 self.score += 2000 * self.level
+        else:
+            if complete_lines == 1:
+                self.score += 100 * self.level
+            elif complete_lines == 2:
+                self.score += 300 * self.level
+            elif complete_lines == 3:
+                self.score += 500 * self.level
+            elif complete_lines == 4:
+                self.score += 800 * self.level
         if self.combos>0:
             self.score += 50 * self.combos * self.level
 
